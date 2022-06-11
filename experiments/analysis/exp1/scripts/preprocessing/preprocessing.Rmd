@@ -1,0 +1,261 @@
+---
+title: "Preprocessing rVTS 2018"
+author: "Dave Braun"
+date: "May 7, 2022"
+output:
+  html_document:
+    code_folding: hide
+    theme: flatly
+    df_print: paged
+knit:
+  (function(inputFile, encoding) {
+    rmarkdown::render(inputFile,
+    encoding = encoding,
+    output_file = 'index.html')})
+  
+---
+
+
+This document was last updated at `r Sys.time()`.
+
+In one shot I'm going to clean the foraging and disconnect data.  
+
+* Subjects  
+  * Drop if errors higher than 15%  
+* Trials  
+  * Drop all RTs longer than 10s  
+  * Drop first trial of block  
+  * Drop error trials and trials following error trials  
+  * Trim on +\- 2 SDs from subject-wise RT means
+  
+  
+## Import and combine
+
+```{r}
+library(tidyverse)
+library(data.table)
+```
+
+
+```{r}
+## switching to processing one dataset at a time
+cued <- read.csv('../../../data/raw_data/foraging_cued_full.csv')
+rvts <- read.csv('../../../data/raw_data/foraging_rvts_full.csv')
+
+cued_keep <- c('workerId', 'rt', 'transition', 'trial', 'error')
+rvts_keep <- c('workerId', 'blockTime', 'Block', 'rt', 'totalPoints', 'transition', 
+               'rightpoints', 'leftpoints', 'response_location', 'error', 'trial')
+
+#cued <- rbind(disconnect_cued[, cued_keep], foraging_cued[, cued_keep])
+#rvts <- rbind(disconnect_rvts[, rvts_keep], foraging_rvts[, rvts_keep])
+```
+
+
+```{r}
+## compute vars
+cued$error_trim <- ifelse(cued$error == 1 | shift(cued$error == 1), 1, 0)
+rvts$error_trim <- ifelse(rvts$error == 1 | shift(rvts$error == 1), 1, 0)
+
+cued$transcode <- ifelse(cued$transition == 'Switch', 1, 0)
+rvts$transcode <- ifelse(rvts$transition == 'Switch', 1, 0)
+
+colnames(cued)[colnames(cued) == 'workerId'] <- 'subject'
+colnames(rvts)[colnames(rvts) == 'workerId'] <- 'subject'
+
+rvts$difference <- ifelse(shift(rvts$response_location) == 'left', 
+                          rvts$rightpoints - rvts$leftpoints, rvts$leftpoints - rvts$rightpoints)
+rvts <- rvts %>% 
+  mutate(point_transition = ifelse(shift(rightpoints) == 1 & rightpoints == 3, 'increasing',
+                                   ifelse(shift(rightpoints) == 3 & rightpoints == 3, 'stay high',
+                                   ifelse(shift(rightpoints) == 1 & rightpoints == 1, 'stay low',
+                                   ifelse(shift(rightpoints) == 3 & rightpoints == 1, 'decreasing', '')))))
+
+rvts$current_points <- ifelse(shift(rvts$response_location) == 'left', rvts$leftpoints, ifelse(shift(rvts$response_location) == 'right', rvts$rightpoints, NA))
+
+rvts$other_points <- ifelse(shift(rvts$response_location) == 'right', rvts$leftpoints, ifelse(shift(rvts$response_location) == 'left', rvts$rightpoints, NA))
+
+rvts$current_location <- ifelse(shift(rvts$response_location) == 'left', 'left', 'right')
+rvts$other_location <- ifelse(shift(rvts$response_location) == 'left', 'right', 'left')
+
+rvts$left_transition <- ifelse(rvts$leftpoints < shift(rvts$leftpoints), 'decrease',
+                               ifelse(rvts$leftpoints == shift(rvts$leftpoints), 'constant',
+                                      ifelse(rvts$leftpoints > shift(rvts$leftpoints), 'increase', NA)))
+
+rvts$right_transition <- ifelse(rvts$rightpoints < shift(rvts$rightpoints), 'decrease',
+                               ifelse(rvts$rightpoints == shift(rvts$rightpoints), 'constant',
+                                      ifelse(rvts$rightpoints > shift(rvts$rightpoints), 'increase', NA)))
+
+
+rvts$current_transition <- ifelse(rvts$current_location == 'left', rvts$left_transition, ifelse(rvts$current_location == 'right', rvts$right_transition, NA))
+
+rvts$other_transition <- ifelse(rvts$other_location == 'left', rvts$left_transition, ifelse(rvts$other_location == 'right', rvts$right_transition, NA))
+
+
+```
+
+```{r}
+## drop subjects where i forgot to adjust the point threshold 
+pilot_subjects <- rvts %>% 
+  group_by(subject) %>% 
+  summarize(max_points = max(totalPoints)) %>% 
+  filter(max_points < 100) %>% 
+  select(subject)
+
+rvts <- rvts[!rvts$subject %in% pilot_subjects$subject,]
+cued <- cued[!cued$subject %in% pilot_subjects$subject,]
+initialN <- length(unique(rvts$subject))
+```
+
+There were **`r initialN` initial subjects.**
+
+## Trim data
+
+### Trim subjects
+
+```{r}
+bad_subjects <- rvts %>% 
+  group_by(subject) %>% 
+  summarize(error = mean(error)) %>% 
+  filter(error > .15) %>% 
+  select(subject)
+
+rvts <- rvts[!rvts$subject %in% bad_subjects$subject,]
+cued <- cued[!cued$subject %in% bad_subjects$subject,]
+```
+
+
+
+For the cued data, all I want is the btwn subject switch costs, so I'm going to compute those only after dropping > 10s RTs.
+```{r}
+trim_summary <- data.frame('reason' = c(), 'proportion_dropped' = c(), rows_dropped = c(), total_rows = c(), phase = c())
+
+start <- nrow(cued)
+cued <- cued[cued$rt < 10000,]
+trim_summary <- rbind(trim_summary, data.frame('reason' = 'RTs over 10s', 
+                                               'proportion_dropped' = 1 - (nrow(cued) / start), phase = 'cued', rows_dropped = start - nrow(cued), total_rows = start))
+start <- nrow(cued)
+cued <- cued[cued$transition != 'StartBlock',]
+trim_summary <- rbind(trim_summary, data.frame('reason' = 'StartBlock', 
+                                               'proportion_dropped' = 1 - (nrow(cued) / start), phase = 'cued', rows_dropped = start - nrow(cued), total_rows = start))
+
+```
+
+```{r}
+## compute switch costs
+switch_costs <- cued %>% 
+  group_by(subject, transition) %>% 
+  summarize(rt = mean(rt)) %>% 
+  spread(transition, rt) %>% 
+  mutate(switch_cost = Switch - Repeat) %>% 
+  select(-Repeat, -Switch) 
+
+hist(switch_costs$switch_cost, main = 'Switch Costs')
+```
+
+## Trim the rest of rVTS data
+
+```{r}
+start <- nrow(rvts)
+rvts <- rvts[rvts$transition != 'StartBlock',]
+trim_summary <- rbind(trim_summary, data.frame('reason' = 'Startblock', 
+                                               'proportion_dropped' = 1 - (nrow(rvts) / start), phase = 'rvts', rows_dropped = start - nrow(rvts), total_rows = start))
+
+start <- nrow(rvts)
+rvts <- rvts[rvts$rt < 10000,]
+trim_summary <- rbind(trim_summary, data.frame('reason' = 'RTs longer than 10s', 
+                                               'proportion_dropped' = 1 - (nrow(rvts) / start), phase = 'rvts', rows_dropped = start - nrow(rvts), total_rows = start))
+
+start <- nrow(rvts)
+rvts <- rvts %>% 
+  group_by(subject) %>% 
+  summarize(rt_m = mean(rt), rt_sd = mean(rt)) %>% 
+  inner_join(rvts) %>% 
+  filter(rt <= rt_m + 2*rt_sd & rt >= rt_m - 2*rt_sd) %>% 
+  select(-rt_m, -rt_sd)
+trim_summary <- rbind(trim_summary, data.frame('reason' = '+/- 2 SDs on participant RT means', 
+                                               'proportion_dropped' = 1 - (nrow(rvts) / start), phase = 'rvts', rows_dropped = start - nrow(rvts), total_rows = start))
+
+rvts_errors <- rvts
+
+start <- nrow(rvts)
+rvts <- rvts[rvts$error_trim == 0, ]
+trim_summary <- rbind(trim_summary, data.frame('reason' = 'Error and trials after errors', 
+                                               'proportion_dropped' = 1 - (nrow(rvts) / start), phase = 'rvts', rows_dropped = start - nrow(rvts), total_rows = start))
+
+```
+## Trim cued data
+
+```{r}
+start <- nrow(cued)
+cued <- cued[cued$rt < 10000,]
+trim_summary <- rbind(trim_summary, data.frame('reason' = 'RTs longer than 10s', 
+                                               'proportion_dropped' = 1 - (nrow(cued) / start), phase = 'cued', rows_dropped = start - nrow(cued), total_rows = start))
+
+start <- nrow(cued)
+cued <- cued %>% 
+  group_by(subject) %>% 
+  summarize(rt_m = mean(rt), rt_sd = mean(rt)) %>% 
+  inner_join(cued) %>% 
+  filter(rt <= rt_m + 2*rt_sd & rt >= rt_m - 2*rt_sd) %>% 
+  select(-rt_m, -rt_sd)
+trim_summary <- rbind(trim_summary, data.frame('reason' = '+/- 2 SDs on participant RT means', 
+                                               'proportion_dropped' = 1 - (nrow(cued) / start), phase = 'cued', rows_dropped = start - nrow(cued), total_rows = start))
+
+cued_errors <- cued
+
+start <- nrow(cued)
+cued <- cued[cued$error_trim == 0, ]
+trim_summary <- rbind(trim_summary, data.frame('reason' = 'Error and trials after errors', 
+                                               'proportion_dropped' = 1 - (nrow(cued) / start), phase = 'cued', rows_dropped = start - nrow(cued), total_rows = start))
+
+```
+
+
+
+## Trimming summary
+
+```{r}
+bad_subjects
+```
+`r nrow(bad_subjects)` were dropped for having error rates over 15%.
+
+```{r}
+## add switch costs to rvts
+rvts <- rvts %>% 
+  inner_join(switch_costs) #%>% 
+  #select(-transition, -rightpoints, -leftpoints, -response_location, -error_trim)
+```
+```{r}
+## block times
+rvts %>% 
+  group_by(subject) %>% 
+  summarize(block_time = mean(blockTime)) %>% 
+  ggplot(aes(x = block_time)) + 
+  geom_histogram(color = 'black')
+```
+
+
+
+```{r}
+trim_summary
+```
+
+Final sample size was `r length(unique(rvts$subject))`
+
+```{r}
+write.csv(rvts, '../../../data/rvts_foraging.csv', row.names = FALSE)
+write.csv(cued, '../../../data/cued_foraging.csv', row.names = FALSE)
+write.csv(rvts_errors, '../../../data/rvts_errors_foraging.csv', row.names = FALSE)
+write.csv(cued_errors, '../../../data/cued_errors_foraging.csv', row.names = FALSE)
+```
+
+
+
+
+
+
+
+
+
+
+

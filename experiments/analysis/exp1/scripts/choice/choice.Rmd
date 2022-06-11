@@ -1,0 +1,163 @@
+---
+title: "Choice Analysis rVTS 2018"
+author: "Dave Braun"
+date: "May 7, 2022"
+output:
+  html_document:
+    code_folding: hide
+    theme: flatly
+knit:
+  (function(inputFile, encoding) {
+    rmarkdown::render(inputFile,
+    encoding = encoding,
+    output_file = 'index.html')})
+  
+---
+
+
+This document was last updated at `r Sys.time()`.
+
+
+```{r}
+library(tidyverse)
+library(lme4)
+
+d <- read.csv('../../data/rvts.csv')
+head(d)
+N <- length(unique(d$subject))
+d$experiment <- factor(d$experiment, levels = c('foraging', 'disconnect'))
+d$experiment <- recode(d$experiment, 'foraging' = 'Foraging', 'disconnect' = 'Disconnect')
+```
+
+
+```{r}
+## means 
+means <- d %>% 
+  group_by(subject, experiment, difference) %>% 
+  summarize(transcode_ = mean(transcode)) %>% 
+  group_by(experiment, difference) %>% 
+  summarize(transcode = mean(transcode_), se = sd(transcode_))
+
+d %>% 
+  group_by(subject, experiment, difference) %>% 
+  summarize(transcode = mean(transcode)) %>% 
+  ggplot(aes(x = difference, y = transcode)) +
+  geom_line(aes(group = subject), alpha = .2) + 
+  geom_line(data = means, aes(x = difference, y = transcode), size = 2) + 
+  geom_ribbon(data = means, aes(ymin = transcode - se, ymax = transcode + se), alpha = .5) + 
+  facet_wrap(~experiment) + 
+  labs(
+    x = 'Points for Switching',
+    y = 'Proportion Switched Tasks'
+  ) + 
+  theme_bw() + 
+  theme(strip.background = element_rect(color = 'black', fill = 'white'))
+```
+
+```{r}
+d %>% 
+  group_by(experiment, subject) %>% 
+  summarize(transcode = mean(transcode)) %>% 
+  ggplot(aes(x = transcode)) + 
+  geom_histogram(color = 'black') + 
+  facet_wrap(~experiment)
+```
+
+Maybe try to show that the disconnect distribution is [bimodal](https://stats.stackexchange.com/questions/51062/test-for-bimodal-distribution)?
+Show number of observations across foraging difference vs. disconnect difference
+RTs across difference
+Consideration of block times
+Compare choice for difference of 1 vs 2
+
+```{r}
+## observation counts
+means <- d %>% 
+  group_by(subject, experiment, difference) %>% 
+  summarize(count = n()) %>% 
+  group_by(experiment, difference) %>% 
+  summarize(avg_count = mean(count), se = sd(count) / sqrt(n()))
+
+d %>% 
+  group_by(subject, experiment, difference) %>% 
+  summarize(count = n()) %>% 
+  ggplot(aes(x = difference, y = count, group = 1)) + 
+  geom_line(aes(group = subject), alpha = .2) + 
+  geom_line(data = means, aes(y = avg_count), size = 2) + 
+  geom_ribbon(data = means, aes(y = avg_count, ymin = avg_count - se, ymax = avg_count + se), alpha = .5) +
+  facet_wrap(~experiment)
+```
+
+```{r}
+
+two_points <- d %>% 
+  filter(difference == 2, experiment == 'Foraging') %>% 
+  group_by(subject) %>% 
+  summarize(count = n()) 
+
+cor_data <- d %>% 
+  group_by(subject) %>% 
+  summarize(block_time = mean(blockTime)) %>% 
+  inner_join(two_points) 
+cor_data %>% 
+  ggplot(aes(x = count, y = block_time)) +
+  geom_point() + 
+  geom_smooth(method = 'lm') + 
+  labs(
+    x = 'Number of Trials When Two Points are Available for Switching',
+    y = 'Average Block Time (s)'
+  ) + 
+  theme_bw()
+    
+cor.test(cor_data$block_time, cor_data$count)
+
+
+
+
+```
+
+
+
+
+
+```{r}
+cor_data <- d %>% 
+  filter(difference == 1)%>% 
+  group_by(subject, experiment) %>% 
+  summarize(transcode = mean(transcode), switch_cost = unique(switch_cost))
+cor_data %>% 
+  ggplot(aes(x = switch_cost, y = transcode)) + 
+  geom_point() + 
+  geom_smooth(method = 'lm') + 
+  facet_wrap(~experiment) + 
+  labs(
+    caption = 'When only one point is available for switching'
+  )
+```
+
+Really seems like this should be an interaction but it just isn't.
+
+```{r}
+cor.test(cor_data[cor_data$experiment == 'Disconnect',]$switch_cost, cor_data[cor_data$experiment == 'Disconnect',]$transcode)
+cor.test(cor_data[cor_data$experiment == 'Foraging',]$switch_cost, cor_data[cor_data$experiment == 'Foraging',]$transcode)
+
+cor_data$experiment_effect <- ifelse(cor_data$experiment == 'Disconnect', -.5, .5)
+cor_data$experiment_dummy <- ifelse(cor_data$experiment == 'Disconnect', 1, 0)
+m <- lm(transcode ~ scale(switch_cost) * experiment_dummy, data = cor_data)
+summary(m)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

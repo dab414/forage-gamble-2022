@@ -1,0 +1,48 @@
+2022-06-11
+    having another go at this
+    focus on contrasts that compare one experiment against the other
+    and the increasing vs. steady reward
+
+    think about a better analysis paradigm for exploratory data analysis...
+
+    okay so the increasing reward effect came through
+        great news
+        
+    i think another possible hook for foraging is that (i believe) this was the
+    first version we ran online
+        pretty sure about that
+        so contrasting the effects against things we reported in b&a2018 would
+        be good
+
+    dont forget i can prob borrow large amounts of text from the failed write up
+    of the first couple submissions of the disconnect stuff
+
+    going back to b&a2018 and finding a lot here
+        the whole current v other thing i totally forgot about
+        we have an analysis of how the indifference point changed over time
+        as well as the ggpairs including some reward sensitivity metric we
+        calculated
+
+        i think it's a good idea to stick closely to this ^ precedant, add in
+        the f&d effect, make the case that disconnect is an ideal way to study
+        how ppl respond to a variety of changes in reward that are outside their
+        control.
+
+        sell individual differences as a plus, could explore strategy selection
+
+
+2022-05-07
+	trying this again
+	for some reason i just have publication fever
+	i wanna get something out of these data that can be typed up
+	
+	keep probing the descriptives for difference = 1 & difference = 2
+	simplify things, look at basic stuff
+	think just get together a general catalog of behvaior
+	a few metrics that can divide subjects into different groups
+	portray disconnect as a complement to foraging
+		highlight different strengths of the two paradigms
+
+	disconnect
+		look at choices across sudden increasing reward vs steadily high reward
+		the frober dreisbach stuff

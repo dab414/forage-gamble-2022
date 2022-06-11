@@ -1,0 +1,17 @@
+foraging
+
+    i think just replicate the same analyses performed in b&a2018
+
+    current v other
+    difference X block -> pswitch
+        glmm
+
+    performance
+    individual differences
+
+disconnect
+    all of the above
+    slightly modified version of current v other
+        present the f&d ttest as a more specific version of the above design to test this hypothesis
+
+direct comparisons between the two?
