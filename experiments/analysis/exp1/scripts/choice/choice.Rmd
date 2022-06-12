@@ -145,9 +145,14 @@ anova(m2, m2_noint)
 ```
 
 
-*Still to do:* get chi square tests for both main effects. Decide what of these predictions I want to visualize, go get the `easypredci` function.
+```{r}
+m2_nodiff1 <- glmer(transcode ~ consec_trial_sc + difference + (1 | subject), data = d, control = glmerControl(optimizer = 'bobyqa'), family = binomial(link = 'logit'), nAGQ = 1)
+m2_nodiff2 <- glmer(transcode ~ consec_trial_sc + (1 | subject), data = d, control = glmerControl(optimizer = 'bobyqa'), family = binomial(link = 'logit'), nAGQ = 1)
+anova(m2_nodiff1, m2_nodiff2)
 
-
+m2_notrial <- glmer(transcode ~  difference + (1 | subject), data = d, control = glmerControl(optimizer = 'bobyqa'), family = binomial(link = 'logit'), nAGQ = 1)
+anova(m2_notrial, m2_nodiff1)
+```
 
 
 

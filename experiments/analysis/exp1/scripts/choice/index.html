@@ -2894,7 +2894,7 @@ div.tocify {
 </div>
 
 
-<p>This document was last updated at 2022-06-11 20:08:49.</p>
+<p>This document was last updated at 2022-06-12 11:23:09.</p>
 <p>In this document I will perform all analyses related to task
 selection.</p>
 <pre class="r"><code>N &lt;- length(unique(d$subject))
@@ -3069,9 +3069,21 @@ anova(m2, m2_noint)</code></pre>
 {"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["npar"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["AIC"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["BIC"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["logLik"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["deviance"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["Chisq"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["Df"],"name":[7],"type":["dbl"],"align":["right"]},{"label":["Pr(>Chisq)"],"name":[8],"type":["dbl"],"align":["right"]}],"data":[{"1":"5","2":"35882.22","3":"35926.25","4":"-17936.11","5":"35872.22","6":"NA","7":"NA","8":"NA","_rn_":"m2_noint"},{"1":"6","2":"35826.94","3":"35879.79","4":"-17907.47","5":"35814.94","6":"57.27516","7":"1","8":"3.789108e-14","_rn_":"m2"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
-<p><em>Still to do:</em> get chi square tests for both main effects.
-Decide what of these predictions I want to visualize, go get the
-<code>easypredci</code> function.</p>
+<pre class="r"><code>m2_nodiff1 &lt;- glmer(transcode ~ consec_trial_sc + difference + (1 | subject), data = d, control = glmerControl(optimizer = &#39;bobyqa&#39;), family = binomial(link = &#39;logit&#39;), nAGQ = 1)
+m2_nodiff2 &lt;- glmer(transcode ~ consec_trial_sc + (1 | subject), data = d, control = glmerControl(optimizer = &#39;bobyqa&#39;), family = binomial(link = &#39;logit&#39;), nAGQ = 1)
+anova(m2_nodiff1, m2_nodiff2)</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["npar"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["AIC"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["BIC"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["logLik"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["deviance"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["Chisq"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["Df"],"name":[7],"type":["dbl"],"align":["right"]},{"label":["Pr(>Chisq)"],"name":[8],"type":["dbl"],"align":["right"]}],"data":[{"1":"3","2":"48300.80","3":"48327.22","4":"-24147.40","5":"48294.80","6":"NA","7":"NA","8":"NA","_rn_":"m2_nodiff2"},{"1":"4","2":"42305.35","3":"42340.58","4":"-21148.68","5":"42297.35","6":"5997.446","7":"1","8":"0","_rn_":"m2_nodiff1"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+<pre class="r"><code>m2_notrial &lt;- glmer(transcode ~  difference + (1 | subject), data = d, control = glmerControl(optimizer = &#39;bobyqa&#39;), family = binomial(link = &#39;logit&#39;), nAGQ = 1)
+anova(m2_notrial, m2_nodiff1)</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["npar"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["AIC"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["BIC"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["logLik"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["deviance"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["Chisq"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["Df"],"name":[7],"type":["dbl"],"align":["right"]},{"label":["Pr(>Chisq)"],"name":[8],"type":["dbl"],"align":["right"]}],"data":[{"1":"3","2":"42339.38","3":"42365.80","4":"-21166.69","5":"42333.38","6":"NA","7":"NA","8":"NA","_rn_":"m2_notrial"},{"1":"4","2":"42305.35","3":"42340.58","4":"-21148.68","5":"42297.35","6":"36.02472","7":"1","8":"1.948304e-09","_rn_":"m2_nodiff1"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
 </div>
 
 
