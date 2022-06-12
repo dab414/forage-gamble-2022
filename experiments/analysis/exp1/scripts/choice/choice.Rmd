@@ -154,10 +154,52 @@ m2_notrial <- glmer(transcode ~  difference + (1 | subject), data = d, control =
 anova(m2_notrial, m2_nodiff1)
 ```
 
+## Interaction follow up
+
+### Impact of time for negative differences
+
+```{r eval = FALSE}
+d$difference_low <- d$difference + 2
+d$difference_high <- d$difference - 2
+
+m_lowd1 <- glmer(transcode ~ difference_low * consec_trial_sc + (0 + difference_low | subject) + (1 | subject), data = d, family = binomial(link = 'logit'), control = glmerControl(optimizer = 'bobyqa'))
+m_lowd2 <- glmer(transcode ~ difference_low + difference_low:consec_trial_sc + (0 + difference_low | subject) + (1 | subject), data = d, family = binomial(link = 'logit'), control = glmerControl(optimizer = 'bobyqa'))
+save(m_lowd1, file = 'm_lowd1')
+save(m_lowd2, file = 'm_lowd2')
+```
 
 
+```{r}
+load('m_lowd1')
+load('m_lowd2')
+summary(m_lowd1)
+exp(fixef(m_lowd1))
+exp(confint(m_lowd1, method = 'Wald'))
+anova(m_lowd1, m_lowd2)
+```
 
 
+### Impact of time for positive differences
+
+```{r eval = FALSE}
+m_highd1 <- glmer(transcode ~ difference_high * consec_trial_sc + (0 + difference_high | subject) + (1 | subject), data = d, family = binomial(link = 'logit'), control = glmerControl(optimizer = 'bobyqa'))
+m_highd2 <- glmer(transcode ~ difference_high + difference_high:consec_trial_sc + (0 + difference_high | subject) + (1 | subject), data = d, family = binomial(link = 'logit'), control = glmerControl(optimizer = 'bobyqa'))
+save('m_highd1', file = 'm_highd1')
+save('m_highd2', file = 'm_highd2')
+```
+
+
+```{r}
+load('m_highd1')
+load('m_highd2')
+summary(m_highd1)
+exp(fixef(m_highd1))
+exp(confint(m_highd1, method = 'Wald'))
+anova(m_highd1, m_highd2)
+```
+
+
+As experiment progresses, people become more likely to switch when difference is high and less likely to switch when difference is low.
 
 
 

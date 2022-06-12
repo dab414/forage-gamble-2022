@@ -1,0 +1,205 @@
+---
+title: "Choice Analysis Gambling"
+author: "Dave Braun"
+date: "June 7, 2022"
+output:
+  html_document:
+    code_folding: hide
+    theme: flatly
+    df_print: paged
+    toc: true
+    toc_float: true
+knit:
+  (function(inputFile, encoding) {
+    rmarkdown::render(inputFile,
+    encoding = encoding,
+    output_file = 'index.html')})
+  
+---
+
+
+This document was last updated at `r Sys.time()`.
+
+In this document I will perform all analyses related to task selection.
+
+```{r include = FALSE}
+library(tidyverse)
+library(ez)
+library(lme4)
+library(data.table)
+
+d <- read.csv('../../../data/rvts_disconnect.csv')
+```
+
+```{r}
+N <- length(unique(d$subject))
+colnames(d) <- tolower(colnames(d))
+head(d)
+```
+
+# Current & Other
+  
+```{r}
+d$active <- ifelse(d$current_transition == 'constant', 'Active Value Constant', 'Active Value Change')
+d$inactive <- ifelse(d$other_transition == 'constant', 'Inactive Value Constant', 'Inactive Value Change')
+
+a <- d %>% 
+  mutate(active = factor(active, levels = c('Active Value Constant', 'Active Value Change')),
+         inactive = factor(inactive, levels = c('Inactive Value Constant', 'Inactive Value Change'))) %>% 
+  filter(difference == 0) %>% 
+  group_by(subject, active, inactive) %>% 
+  summarize(sw_ = mean(transcode)) 
+a %>% 
+  group_by(active, inactive) %>% 
+  summarize(sw = mean(sw_), se = sd(sw_) / sqrt(N)) %>% 
+  print() %>% 
+  ggplot(aes(x = active, y = sw, group = inactive)) +
+  geom_bar(stat = 'identity', aes(fill = inactive), position = position_dodge(width = .9), color = 'black') + 
+  geom_errorbar(aes(ymin = sw - se, ymax = sw + se), position = position_dodge(width = .9), width = .3)+ 
+  labs(
+    x = '',
+    y = 'Proportion of Task Switches',
+    fill = ''
+  ) + 
+  ylim(0,1) + 
+  scale_fill_manual(values = c('Inactive Value Constant' = 'dark grey', 'Inactive Value Change' = 'white')) + 
+  theme_bw() + 
+  theme(axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        legend.position = c(.2, .8))
+```
+
+
+```{r}
+d0 <- d[d$difference==0,]
+m1 <- ezANOVA(wid = subject, within = .(active, inactive), dv = transcode, detailed = TRUE, data = d0)
+cbind(m1$ANOVA, data.frame(n2p = m1$ANOVA$SSn / (m1$ANOVA$SSn + m1$ANOVA$SSd)))
+
+dfd <- 84
+SSd <- m1$ANOVA$SSd[4]
+
+im <- ezANOVA(wid = subject, within = .(inactive), dv = transcode, detailed = TRUE, data = d0[d0$active == 'Active Value Constant',])
+dfn <- 1
+SSn <- im$ANOVA$SSn[2]
+
+msb <- SSn / dfn
+mse <- SSd / dfd
+
+f <- msb / mse
+p <- 1 - pf(f, dfn, dfd)
+n2p <- SSn / (SSn + SSd)
+
+print('Simple effect of other for current constant')
+print(paste0('F(', dfn, ', ', dfd, ') = ', round(f, 2), ', p = ', round(p, 3), ', eta = ', round(n2p, 2)))
+```
+
+```{r}
+im <- ezANOVA(wid = subject, within = .(inactive), dv = transcode, detailed = TRUE, data = d0[d0$active == 'Active Value Change',])
+dfn <- 1
+SSn <- im$ANOVA$SSn[2]
+
+msb <- SSn / dfn
+mse <- SSd / dfd
+
+f <- msb / mse
+p <- 1 - pf(f, dfn, dfd)
+n2p <- SSn / (SSn + SSd)
+
+print('Simple effect of other for current decrease')
+print(paste0('F(', dfn, ', ', dfd, ') = ', round(f, 2), ', ', round(p, 3), ', eta = ', round(n2p, 2)))
+```
+## F&D ttests
+
+```{r}
+pt <- d %>% 
+   filter(difference == 0, rightpoints == 3 | rightpoints == 1) %>%
+   mutate(point_transition = ifelse(shift(rightpoints) == 1 & rightpoints == 3, 'increasing',
+                                    ifelse(shift(rightpoints) == 3 & rightpoints == 3, 'stay high',
+                                    ifelse(shift(rightpoints) == 1 & rightpoints == 1, 'stay low',
+                                    ifelse(shift(rightpoints) == 3 & rightpoints == 1, 'decreasing', ''))))) %>% 
+  filter(totalpoints > shift(totalpoints), !is.na(point_transition)) %>% 
+  group_by(subject, point_transition) %>% 
+  summarize(transcode = mean(transcode))
+
+increasing <- pt[pt$point_transition == 'increasing',]$transcode
+stay_high <- pt[pt$point_transition == 'stay high',]$transcode
+
+t.test(increasing, stay_high, paired = TRUE)
+
+pt %>% 
+  filter(point_transition == 'increasing' | point_transition == 'stay high') %>% 
+  group_by(point_transition) %>% 
+  summarize(m = mean(transcode), se = sd(transcode) / sqrt(N))
+```
+
+
+# Difference & Block -> PSwitch
+
+```{r}
+## code and center model vars
+
+## compute an impromptu trial count
+
+d <- d %>% 
+  group_by(subject) %>% 
+  mutate(consec_trial = seq(n()))
+
+d$consec_trial_sc <- scale(d$consec_trial)
+```
+
+
+```{r eval = FALSE}
+## model fits
+m2 <- glmer(transcode ~ consec_trial_sc * difference + (1 + difference | subject), data = d, control = glmerControl(optimizer = 'bobyqa'), family = binomial(link = 'logit'), nAGQ = 1)
+m2_down1 <- glmer(transcode ~ consec_trial_sc * difference + (0 + difference | subject) + (1 | subject), data = d, control = glmerControl(optimizer = 'bobyqa'), family = binomial(link = 'logit'), nAGQ = 1)
+anova(m2, m2_down1)
+save(m2, file = 'winning_glmm')
+```
+
+Winning model has random intercept and slope of difference (no cov).
+
+Note: direction of interaction effect is opposite B&A2018. Other effects are consistent.
+
+```{r}
+load('winning_glmm')
+summary(m2)
+exp(fixef(m2))
+exp(confint(m2, method = 'Wald'))
+```
+
+
+```{r}
+m2_noint <- glmer(transcode ~ consec_trial_sc + difference  + (1 + difference | subject), data = d, control = glmerControl(optimizer = 'bobyqa'), family = binomial(link = 'logit'), nAGQ = 1)
+anova(m2, m2_noint)
+```
+
+
+```{r}
+m2_nodiff1 <- glmer(transcode ~ consec_trial_sc + difference + (1 | subject), data = d, control = glmerControl(optimizer = 'bobyqa'), family = binomial(link = 'logit'), nAGQ = 1)
+m2_nodiff2 <- glmer(transcode ~ consec_trial_sc + (1 | subject), data = d, control = glmerControl(optimizer = 'bobyqa'), family = binomial(link = 'logit'), nAGQ = 1)
+anova(m2_nodiff1, m2_nodiff2)
+
+m2_notrial <- glmer(transcode ~  difference + (1 | subject), data = d, control = glmerControl(optimizer = 'bobyqa'), family = binomial(link = 'logit'), nAGQ = 1)
+anova(m2_notrial, m2_nodiff1)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -2894,7 +2894,7 @@ div.tocify {
 </div>
 
 
-<p>This document was last updated at 2022-06-12 11:23:09.</p>
+<p>This document was last updated at 2022-06-12 12:30:07.</p>
 <p>In this document I will perform all analyses related to task
 selection.</p>
 <pre class="r"><code>N &lt;- length(unique(d$subject))
@@ -3083,6 +3083,143 @@ anova(m2_notrial, m2_nodiff1)</code></pre>
 <script data-pagedtable-source type="application/json">
 {"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["npar"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["AIC"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["BIC"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["logLik"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["deviance"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["Chisq"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["Df"],"name":[7],"type":["dbl"],"align":["right"]},{"label":["Pr(>Chisq)"],"name":[8],"type":["dbl"],"align":["right"]}],"data":[{"1":"3","2":"42339.38","3":"42365.80","4":"-21166.69","5":"42333.38","6":"NA","7":"NA","8":"NA","_rn_":"m2_notrial"},{"1":"4","2":"42305.35","3":"42340.58","4":"-21148.68","5":"42297.35","6":"36.02472","7":"1","8":"1.948304e-09","_rn_":"m2_nodiff1"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
+</div>
+<div id="interaction-follow-up" class="section level2">
+<h2>Interaction follow up</h2>
+<div id="impact-of-time-for-negative-differences" class="section level3">
+<h3>Impact of time for negative differences</h3>
+<pre class="r"><code>d$difference_low &lt;- d$difference + 2
+d$difference_high &lt;- d$difference - 2
+
+m_lowd1 &lt;- glmer(transcode ~ difference_low * consec_trial_sc + (0 + difference_low | subject) + (1 | subject), data = d, family = binomial(link = &#39;logit&#39;), control = glmerControl(optimizer = &#39;bobyqa&#39;))
+m_lowd2 &lt;- glmer(transcode ~ difference_low + difference_low:consec_trial_sc + (0 + difference_low | subject) + (1 | subject), data = d, family = binomial(link = &#39;logit&#39;), control = glmerControl(optimizer = &#39;bobyqa&#39;))
+save(m_lowd1, file = &#39;m_lowd1&#39;)
+save(m_lowd2, file = &#39;m_lowd2&#39;)</code></pre>
+<pre class="r"><code>load(&#39;m_lowd1&#39;)
+load(&#39;m_lowd2&#39;)
+summary(m_lowd1)</code></pre>
+<pre><code>## Generalized linear mixed model fit by maximum likelihood (Laplace
+##   Approximation) [glmerMod]
+##  Family: binomial  ( logit )
+## Formula: transcode ~ difference_low * consec_trial_sc + (0 + difference_low |  
+##     subject) + (1 | subject)
+##    Data: d
+## Control: glmerControl(optimizer = &quot;bobyqa&quot;)
+## 
+##      AIC      BIC   logLik deviance df.resid 
+##  36025.6  36078.5 -18006.8  36013.6    49387 
+## 
+## Scaled residuals: 
+##     Min      1Q  Median      3Q     Max 
+## -30.776  -0.500  -0.105   0.181  51.559 
+## 
+## Random effects:
+##  Groups    Name           Variance Std.Dev.
+##  subject   difference_low  3.551   1.884   
+##  subject.1 (Intercept)    14.342   3.787   
+## Number of obs: 49393, groups:  subject, 85
+## 
+## Fixed effects:
+##                                Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept)                    -5.14185    0.43142 -11.918  &lt; 2e-16 ***
+## difference_low                  1.51164    0.20857   7.248 4.24e-13 ***
+## consec_trial_sc                -0.37397    0.05910  -6.327 2.50e-10 ***
+## difference_low:consec_trial_sc  0.14706    0.01939   7.585 3.33e-14 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Correlation of Fixed Effects:
+##             (Intr) dffrn_ cnsc__
+## differnc_lw -0.055              
+## cnsc_trl_sc  0.038 -0.022       
+## dffrnc_l:__ -0.037  0.022 -0.944</code></pre>
+<pre class="r"><code>exp(fixef(m_lowd1))</code></pre>
+<pre><code>##                    (Intercept)                 difference_low 
+##                     0.00584685                     4.53414660 
+##                consec_trial_sc difference_low:consec_trial_sc 
+##                     0.68800020                     1.15841925</code></pre>
+<pre class="r"><code>exp(confint(m_lowd1, method = &#39;Wald&#39;))</code></pre>
+<pre><code>##                                      2.5 %     97.5 %
+## .sig01                                  NA         NA
+## .sig02                                  NA         NA
+## (Intercept)                    0.002510111 0.01361918
+## difference_low                 3.012719216 6.82389693
+## consec_trial_sc                0.612743807 0.77249948
+## difference_low:consec_trial_sc 1.115225650 1.20328578</code></pre>
+<pre class="r"><code>anova(m_lowd1, m_lowd2)</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["npar"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["AIC"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["BIC"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["logLik"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["deviance"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["Chisq"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["Df"],"name":[7],"type":["dbl"],"align":["right"]},{"label":["Pr(>Chisq)"],"name":[8],"type":["dbl"],"align":["right"]}],"data":[{"1":"5","2":"36063.40","3":"36107.44","4":"-18026.70","5":"36053.40","6":"NA","7":"NA","8":"NA","_rn_":"m_lowd2"},{"1":"6","2":"36025.64","3":"36078.49","4":"-18006.82","5":"36013.64","6":"39.75767","7":"1","8":"2.875099e-10","_rn_":"m_lowd1"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+</div>
+<div id="impact-of-time-for-positive-differences" class="section level3">
+<h3>Impact of time for positive differences</h3>
+<pre class="r"><code>m_highd1 &lt;- glmer(transcode ~ difference_high * consec_trial_sc + (0 + difference_high | subject) + (1 | subject), data = d, family = binomial(link = &#39;logit&#39;), control = glmerControl(optimizer = &#39;bobyqa&#39;))
+m_highd2 &lt;- glmer(transcode ~ difference_high + difference_high:consec_trial_sc + (0 + difference_high | subject) + (1 | subject), data = d, family = binomial(link = &#39;logit&#39;), control = glmerControl(optimizer = &#39;bobyqa&#39;))
+save(&#39;m_highd1&#39;, file = &#39;m_highd1&#39;)
+save(&#39;m_highd2&#39;, file = &#39;m_highd2&#39;)</code></pre>
+<pre class="r"><code>load(&#39;m_highd1&#39;)
+load(&#39;m_highd2&#39;)
+summary(m_highd1)</code></pre>
+<pre><code>## Generalized linear mixed model fit by maximum likelihood (Laplace
+##   Approximation) [glmerMod]
+##  Family: binomial  ( logit )
+## Formula: 
+## transcode ~ difference_high * consec_trial_sc + (0 + difference_high |  
+##     subject) + (1 | subject)
+##    Data: d
+## Control: glmerControl(optimizer = &quot;bobyqa&quot;)
+## 
+##      AIC      BIC   logLik deviance df.resid 
+##  36048.3  36101.2 -18018.2  36036.3    49387 
+## 
+## Scaled residuals: 
+##     Min      1Q  Median      3Q     Max 
+## -31.662  -0.500  -0.105   0.180  52.860 
+## 
+## Random effects:
+##  Groups    Name            Variance Std.Dev.
+##  subject   difference_high  3.358   1.832   
+##  subject.1 (Intercept)     20.835   4.565   
+## Number of obs: 49393, groups:  subject, 85
+## 
+## Fixed effects:
+##                                 Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept)                      1.14918    0.49845   2.306   0.0211 *  
+## difference_high                  1.71769    0.20821   8.250  &lt; 2e-16 ***
+## consec_trial_sc                  0.21078    0.02911   7.240 4.49e-13 ***
+## difference_high:consec_trial_sc  0.14735    0.01936   7.610 2.74e-14 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Correlation of Fixed Effects:
+##             (Intr) dffrn_ cnsc__
+## diffrnc_hgh 0.011               
+## cnsc_trl_sc 0.007  0.018        
+## dffrnc_h:__ 0.005  0.024  0.744</code></pre>
+<pre class="r"><code>exp(fixef(m_highd1))</code></pre>
+<pre><code>##                     (Intercept)                 difference_high 
+##                        3.155594                        5.571633 
+##                 consec_trial_sc difference_high:consec_trial_sc 
+##                        1.234638                        1.158756</code></pre>
+<pre class="r"><code>exp(confint(m_highd1, method = &#39;Wald&#39;))</code></pre>
+<pre><code>##                                    2.5 %   97.5 %
+## .sig01                                NA       NA
+## .sig02                                NA       NA
+## (Intercept)                     1.187957 8.382265
+## difference_high                 3.704704 8.379374
+## consec_trial_sc                 1.166161 1.307135
+## difference_high:consec_trial_sc 1.115607 1.203574</code></pre>
+<pre class="r"><code>anova(m_highd1, m_highd2)</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["npar"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["AIC"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["BIC"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["logLik"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["deviance"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["Chisq"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["Df"],"name":[7],"type":["dbl"],"align":["right"]},{"label":["Pr(>Chisq)"],"name":[8],"type":["dbl"],"align":["right"]}],"data":[{"1":"5","2":"36098.46","3":"36142.50","4":"-18044.23","5":"36088.46","6":"NA","7":"NA","8":"NA","_rn_":"m_highd2"},{"1":"6","2":"36048.34","3":"36101.19","4":"-18018.17","5":"36036.34","6":"52.11801","7":"1","8":"5.226336e-13","_rn_":"m_highd1"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+<p>As experiment progresses, people become more likely to switch when
+difference is high and less likely to switch when difference is low.</p>
+</div>
 </div>
 </div>
 
