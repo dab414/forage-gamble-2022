@@ -1,11 +1,14 @@
 ---
-title: "Choice Analysis rVTS 2018"
+title: "Choice Analysis Foraging"
 author: "Dave Braun"
-date: "May 7, 2022"
+date: "June 6, 2022"
 output:
   html_document:
     code_folding: hide
     theme: flatly
+    df_print: paged
+    toc: true
+    toc_float: true
 knit:
   (function(inputFile, encoding) {
     rmarkdown::render(inputFile,
@@ -17,134 +20,139 @@ knit:
 
 This document was last updated at `r Sys.time()`.
 
+In this document I will perform all analyses related to task selection.
 
-```{r}
+```{r include = FALSE}
 library(tidyverse)
+library(ez)
 library(lme4)
 
-d <- read.csv('../../data/rvts.csv')
-head(d)
+d <- read.csv('../../../data/rvts_foraging.csv')
+```
+
+```{r}
 N <- length(unique(d$subject))
-d$experiment <- factor(d$experiment, levels = c('foraging', 'disconnect'))
-d$experiment <- recode(d$experiment, 'foraging' = 'Foraging', 'disconnect' = 'Disconnect')
+head(d)
 ```
 
-
+# Current & Other
+  
 ```{r}
-## means 
-means <- d %>% 
-  group_by(subject, experiment, difference) %>% 
-  summarize(transcode_ = mean(transcode)) %>% 
-  group_by(experiment, difference) %>% 
-  summarize(transcode = mean(transcode_), se = sd(transcode_))
-
-d %>% 
-  group_by(subject, experiment, difference) %>% 
-  summarize(transcode = mean(transcode)) %>% 
-  ggplot(aes(x = difference, y = transcode)) +
-  geom_line(aes(group = subject), alpha = .2) + 
-  geom_line(data = means, aes(x = difference, y = transcode), size = 2) + 
-  geom_ribbon(data = means, aes(ymin = transcode - se, ymax = transcode + se), alpha = .5) + 
-  facet_wrap(~experiment) + 
+a <- d %>% 
+  group_by(subject, current_transition, other_transition) %>% 
+  summarize(sw_ = mean(transcode)) 
+a %>% 
+  group_by(current_transition, other_transition) %>% 
+  summarize(sw = mean(sw_), se = sd(sw_) / sqrt(N)) %>% 
+  mutate(current_transition = recode(current_transition, `decrease` = 'Current Value Decrease', `constant` = 'Current Value Constant'),
+         other_transition = recode(other_transition, `increase` = 'Other Value Increase', `constant` = 'Other Value Constant')) %>% 
+  ggplot(aes(x = current_transition, y = sw, group = other_transition)) +
+  geom_bar(stat = 'identity', aes(fill = other_transition), position = position_dodge(width = .9), color = 'black') + 
+  geom_errorbar(aes(ymin = sw - se, ymax = sw + se), position = position_dodge(width = .9), width = .3)+ 
   labs(
-    x = 'Points for Switching',
-    y = 'Proportion Switched Tasks'
+    x = '',
+    y = 'Proportion of Task Switches',
+    fill = ''
   ) + 
+  ylim(0,1) + 
+  scale_fill_manual(values = c('Other Value Constant' = 'dark grey', 'Other Value Increase' = 'white')) + 
   theme_bw() + 
-  theme(strip.background = element_rect(color = 'black', fill = 'white'))
+  theme(axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        legend.position = c(.2, .8))
+```
+
+
+```{r}
+m1 <- ezANOVA(wid = subject, within = .(current_transition, other_transition), dv = transcode, detailed = TRUE, data = d)
+cbind(m1$ANOVA, data.frame(n2p = m1$ANOVA$SSn / (m1$ANOVA$SSn + m1$ANOVA$SSd)))
+
+dfd <- 84
+SSd <- m1$ANOVA$SSd[4]
+
+im <- ezANOVA(wid = subject, within = .(other_transition), dv = transcode, detailed = TRUE, data = d[d$current_transition == 'constant',])
+dfn <- 1
+SSn <- im$ANOVA$SSn[2]
+
+msb <- SSn / dfn
+mse <- SSd / dfd
+
+f <- msb / mse
+p <- 1 - pf(f, dfn, dfd)
+n2p <- SSn / (SSn + SSd)
+
+print('Simple effect of other for current constant')
+print(paste0('F(', dfn, ', ', dfd, ') = ', round(f, 2), ', ', round(p, 3), ', eta = ', round(n2p, 2)))
 ```
 
 ```{r}
-d %>% 
-  group_by(experiment, subject) %>% 
-  summarize(transcode = mean(transcode)) %>% 
-  ggplot(aes(x = transcode)) + 
-  geom_histogram(color = 'black') + 
-  facet_wrap(~experiment)
+im <- ezANOVA(wid = subject, within = .(other_transition), dv = transcode, detailed = TRUE, data = d[d$current_transition == 'decrease',])
+dfn <- 1
+SSn <- im$ANOVA$SSn[2]
+
+msb <- SSn / dfn
+mse <- SSd / dfd
+
+f <- msb / mse
+p <- 1 - pf(f, dfn, dfd)
+n2p <- SSn / (SSn + SSd)
+
+print('Simple effect of other for current decrease')
+print(paste0('F(', dfn, ', ', dfd, ') = ', round(f, 2), ', ', round(p, 3), ', eta = ', round(n2p, 2)))
 ```
 
-Maybe try to show that the disconnect distribution is [bimodal](https://stats.stackexchange.com/questions/51062/test-for-bimodal-distribution)?
-Show number of observations across foraging difference vs. disconnect difference
-RTs across difference
-Consideration of block times
-Compare choice for difference of 1 vs 2
+
+# Difference & Block -> PSwitch
 
 ```{r}
-## observation counts
-means <- d %>% 
-  group_by(subject, experiment, difference) %>% 
-  summarize(count = n()) %>% 
-  group_by(experiment, difference) %>% 
-  summarize(avg_count = mean(count), se = sd(count) / sqrt(n()))
+## code and center model vars
+colnames(d) <- tolower(colnames(d))
+## compute an impromptu trial count
 
-d %>% 
-  group_by(subject, experiment, difference) %>% 
-  summarize(count = n()) %>% 
-  ggplot(aes(x = difference, y = count, group = 1)) + 
-  geom_line(aes(group = subject), alpha = .2) + 
-  geom_line(data = means, aes(y = avg_count), size = 2) + 
-  geom_ribbon(data = means, aes(y = avg_count, ymin = avg_count - se, ymax = avg_count + se), alpha = .5) +
-  facet_wrap(~experiment)
-```
-
-```{r}
-
-two_points <- d %>% 
-  filter(difference == 2, experiment == 'Foraging') %>% 
+d <- d %>% 
   group_by(subject) %>% 
-  summarize(count = n()) 
+  mutate(consec_trial = seq(n()))
 
-cor_data <- d %>% 
-  group_by(subject) %>% 
-  summarize(block_time = mean(blockTime)) %>% 
-  inner_join(two_points) 
-cor_data %>% 
-  ggplot(aes(x = count, y = block_time)) +
-  geom_point() + 
-  geom_smooth(method = 'lm') + 
-  labs(
-    x = 'Number of Trials When Two Points are Available for Switching',
-    y = 'Average Block Time (s)'
-  ) + 
-  theme_bw()
-    
-cor.test(cor_data$block_time, cor_data$count)
-
-
-
-
+d$consec_trial_sc <- scale(d$consec_trial)
 ```
 
 
+```{r eval = FALSE}
+## model fits
+m2 <- glmer(transcode ~ consec_trial_sc * difference + (1 + difference | subject), data = d, control = glmerControl(optimizer = 'bobyqa'), family = binomial(link = 'logit'), nAGQ = 1)
+m2_down1 <- glmer(transcode ~ consec_trial_sc * difference + (0 + difference | subject) + (1 | subject), data = d, control = glmerControl(optimizer = 'bobyqa'), family = binomial(link = 'logit'), nAGQ = 1)
+m2_down2 <- glmer(transcode ~ consec_trial_sc * difference + (1 | subject), data = d, control = glmerControl(optimizer = 'bobyqa'), family = binomial(link = 'logit'), nAGQ = 1)
+anova(m2_down2, m2_down1)
+m2 <- m2_down1
+save(m2, file = 'winning_glmm')
+```
 
+Winning model has random intercept and slope of difference (no cov).
+
+Note: direction of interaction effect is opposite B&A2018. Other effects are consistent.
+
+```{r}
+load('winning_glmm')
+summary(m2)
+exp(fixef(m2))
+exp(confint(m2, method = 'Wald'))
+```
 
 
 ```{r}
-cor_data <- d %>% 
-  filter(difference == 1)%>% 
-  group_by(subject, experiment) %>% 
-  summarize(transcode = mean(transcode), switch_cost = unique(switch_cost))
-cor_data %>% 
-  ggplot(aes(x = switch_cost, y = transcode)) + 
-  geom_point() + 
-  geom_smooth(method = 'lm') + 
-  facet_wrap(~experiment) + 
-  labs(
-    caption = 'When only one point is available for switching'
-  )
+m2_noint <- glmer(transcode ~ consec_trial_sc + difference + (0 + difference | subject) + (1 | subject), data = d, control = glmerControl(optimizer = 'bobyqa'), family = binomial(link = 'logit'), nAGQ = 1)
+anova(m2, m2_noint)
 ```
 
-Really seems like this should be an interaction but it just isn't.
 
-```{r}
-cor.test(cor_data[cor_data$experiment == 'Disconnect',]$switch_cost, cor_data[cor_data$experiment == 'Disconnect',]$transcode)
-cor.test(cor_data[cor_data$experiment == 'Foraging',]$switch_cost, cor_data[cor_data$experiment == 'Foraging',]$transcode)
+*Still to do:* get chi square tests for both main effects. Decide what of these predictions I want to visualize, go get the `easypredci` function.
 
-cor_data$experiment_effect <- ifelse(cor_data$experiment == 'Disconnect', -.5, .5)
-cor_data$experiment_dummy <- ifelse(cor_data$experiment == 'Disconnect', 1, 0)
-m <- lm(transcode ~ scale(switch_cost) * experiment_dummy, data = cor_data)
-summary(m)
-```
+
+
+
+
+
+
 
 
 

@@ -46,9 +46,10 @@ cued_keep <- c('workerId', 'rt', 'transition', 'trial', 'error')
 rvts_keep <- c('workerId', 'blockTime', 'Block', 'rt', 'totalPoints', 'transition', 
                'rightpoints', 'leftpoints', 'response_location', 'error', 'trial')
 
-#cued <- rbind(disconnect_cued[, cued_keep], foraging_cued[, cued_keep])
-#rvts <- rbind(disconnect_rvts[, rvts_keep], foraging_rvts[, rvts_keep])
+rvts <- rvts[, rvts_keep]
+cued <- cued[, cued_keep]
 ```
+
 
 
 ```{r}

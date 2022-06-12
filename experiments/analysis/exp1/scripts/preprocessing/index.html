@@ -1747,7 +1747,7 @@ pre code {
 </div>
 
 
-<p>This document was last updated at 2022-06-11 18:45:44.</p>
+<p>This document was last updated at 2022-06-11 19:05:55.</p>
 <p>In one shot I’m going to clean the foraging and disconnect data.</p>
 <ul>
 <li>Subjects
@@ -1788,15 +1788,15 @@ pre code {
 ## 
 ##     transpose</code></pre>
 <pre class="r"><code>## switching to processing one dataset at a time
-cued &lt;- read.csv(&#39;../../../data/sub_data/foraging_cued_full.csv&#39;)
-rvts &lt;- read.csv(&#39;../../../data/sub_data/foraging_rvts_full.csv&#39;)
+cued &lt;- read.csv(&#39;../../../data/raw_data/foraging_cued_full.csv&#39;)
+rvts &lt;- read.csv(&#39;../../../data/raw_data/foraging_rvts_full.csv&#39;)
 
 cued_keep &lt;- c(&#39;workerId&#39;, &#39;rt&#39;, &#39;transition&#39;, &#39;trial&#39;, &#39;error&#39;)
 rvts_keep &lt;- c(&#39;workerId&#39;, &#39;blockTime&#39;, &#39;Block&#39;, &#39;rt&#39;, &#39;totalPoints&#39;, &#39;transition&#39;, 
                &#39;rightpoints&#39;, &#39;leftpoints&#39;, &#39;response_location&#39;, &#39;error&#39;, &#39;trial&#39;)
 
-#cued &lt;- rbind(disconnect_cued[, cued_keep], foraging_cued[, cued_keep])
-#rvts &lt;- rbind(disconnect_rvts[, rvts_keep], foraging_rvts[, rvts_keep])</code></pre>
+rvts &lt;- rvts[, rvts_keep]
+cued &lt;- cued[, cued_keep]</code></pre>
 <pre class="r"><code>## compute vars
 cued$error_trim &lt;- ifelse(cued$error == 1 | shift(cued$error == 1), 1, 0)
 rvts$error_trim &lt;- ifelse(rvts$error == 1 | shift(rvts$error == 1), 1, 0)
